@@ -30,12 +30,12 @@ def test_send():
     val = object()
     ch = Channel()
     ch.send(val)
-    assert ch.value is val
+    assert ch._value is val
 
 def test_recv(loaded_ch):
     val, ch = loaded_ch
     assert ch.recv() is val
-    assert ch.value is empty
+    assert ch._value is empty
 
 def test_recv_waits_in_different_thread():
     val = object()
@@ -62,7 +62,7 @@ def test_send_waits_in_different_thread():
 
     def f(ch):
         ch.send(val)            # This will block until a value is received.
-        assert ch.value is val
+        assert ch._value is val
 
     t = threading.Thread(target=f, args=(ch,))
     t.start()

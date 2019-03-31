@@ -28,24 +28,24 @@ class Channel(object):
     """A thread-safe channel to send data through."""
 
     def __init__(self):
-        self.value = empty
-        self.lock = threading.Lock()
-        self.recv_val = threading.Condition(self.lock)
-        self.send_val = threading.Condition(self.lock)
+        self._value = empty
+        self._lock = threading.Lock()
+        self._recv_val = threading.Condition(self._lock)
+        self._send_val = threading.Condition(self._lock)
 
     def send(self, value):
         """Send a value through the channel.
 
         If the channel is full, sends the active thread to sleep.
         """
-        with self.send_val:
-            while self.value is not empty:
+        with self._send_val:
+            while self._value is not empty:
                 # Wait for the channel to open up.
-                self.send_val.wait()
+                self._send_val.wait()
 
-            self.value = value
+            self._value = value
 
-            self.recv_val.notify()
+            self._recv_val.notify()
             # Notify the ``recv_val`` condition that the channel has a value.
 
     def recv(self):
@@ -53,15 +53,15 @@ class Channel(object):
 
         If no value is available, sends the active thread to sleep.
         """
-        with self.recv_val:
-            while self.value is empty:
+        with self._recv_val:
+            while self._value is empty:
                 # Wait for a value to be sent through the channel.
-                self.recv_val.wait()
+                self._recv_val.wait()
 
-            val = self.value
-            self.value = empty
+            val = self._value
+            self._value = empty
 
-            self.send_val.notify()
+            self._send_val.notify()
             # Notify the ``send_val`` condition that the channel is open.
 
             return val
