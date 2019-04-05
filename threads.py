@@ -24,11 +24,76 @@ class Empty(object):
 empty = Empty()                 # The empty value.
 
 
-class Channel(object):
-    """A thread-safe channel to send data through."""
+class _Queue(object):
+    """Simple wrap-around queue.
 
-    def __init__(self):
-        self._value = empty
+    :param int size: The size of the queue.
+    """
+
+    def __init__(self, size=1):
+        self._queue = [empty for _ in range(size)]
+        self._start = self._end = 0
+
+    def __getitem__(self, key):
+        return self._queue[key]
+
+    def __setitem__(self, key, value):
+        self._queue[key] = value
+
+    def __len__(self):
+        return len(self._queue)
+
+    @property
+    def empty(self):
+        """Return bool indicating if queue is empty."""
+        return self._queue[self._start] is empty
+
+    @property
+    def full(self):
+        """Return bool indicating if queue is full."""
+        return self[self._end] is not empty
+
+    def _inc_index(self, index):
+        """Properly increment the index and return."""
+        return (index + 1) % len(self)
+
+    def pop(self):
+        """Pop a value from the front of the queue.
+
+        :raises ValueError: When the queue is empty.
+        """
+        if self.empty:
+            # This should never happen if the queue is managed properly.
+            raise ValueError('Cannot pop from empty queue.')
+
+        val = self[self._start]
+
+        self[self._start] = empty
+        self._start = self._inc_index(self._start)
+
+        return val
+
+    def push(self, value):
+        """Push the value onto the back of the queue.
+
+        :raises ValueError: When the queue is full.
+        """
+        if self.full:
+            # This should never happen if the queue is managed properly.
+            raise ValueError('Cannot push onto full queue.')
+
+        self[self._end] = value
+        self._end = self._inc_index(self._end)
+
+
+class Channel(object):
+    """A thread-safe channel to send data through.
+
+    :param int size: The size of the channels buffer.
+    """
+
+    def __init__(self, size=1):
+        self._values = _Queue(size)
         self._lock = threading.Lock()
         self._recv_val = threading.Condition(self._lock)
         self._send_val = threading.Condition(self._lock)
@@ -39,14 +104,14 @@ class Channel(object):
         If the channel is full, sends the active thread to sleep.
         """
         with self._send_val:
-            while self._value is not empty:
+            while self._values.full:
                 # Wait for the channel to open up.
                 self._send_val.wait()
 
-            self._value = value
+            self._values.push(value)
 
-            self._recv_val.notify()
             # Notify the ``recv_val`` condition that the channel has a value.
+            self._recv_val.notify()
 
     def recv(self):
         """Receive a value from the channel.
@@ -54,15 +119,14 @@ class Channel(object):
         If no value is available, sends the active thread to sleep.
         """
         with self._recv_val:
-            while self._value is empty:
+            while self._values.empty:
                 # Wait for a value to be sent through the channel.
                 self._recv_val.wait()
 
-            val = self._value
-            self._value = empty
+            val = self._values.pop()
 
-            self._send_val.notify()
             # Notify the ``send_val`` condition that the channel is open.
+            self._send_val.notify()
 
             return val
 
