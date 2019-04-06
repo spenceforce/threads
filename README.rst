@@ -46,25 +46,34 @@ and allow threads to easily communicate with each other.
 
    from threads import Channel, threaded
 
-   ch = Channel()
+   from threading import current_thread
 
    @threaded
-   def add(x, y, ch):
-       # Instead of returning the value, send it through the channel.
-       ch.send(x + y)
+   def worker(num, ch):
+       print 'I am worker {} in thread {}.'.format(num, current_thread().name)
+       ch.send('done')  # Notify caller this thread is done.
 
-   add(1, 2, ch)    # This runs in a new thread.
+   ch = Channel()
 
-   print ch.recv()  # recv blocks until a value is sent through the channel.
-   # -> 3
+   for i in range(1, 5):
+       worker(i, ch)  # Each call to worker runs in a new thread.
+
+   for i in range(4):
+       ch.recv()      # Wait for each worker to send the message that it's done.
+
+   # Output:
+   # I am worker 1 in thread Thread-1.
+   # I am worker 2 in thread Thread-2.
+   # I am worker 3 in thread Thread-3.
+   # I am worker 4 in thread Thread-4.
 
 If a channel has no value in it, calling ``recv()`` on the channel will
-block until a value is sent through the channel. Likewise, if there is
-already a value in the channel, calling ``send()`` on the channel will
-block until the value is removed from the channel. In both cases, the
-channel will release control to allow other threads to run.
+block that thread until a value is sent through the channel. Likewise, if there
+is already a value in the channel, calling ``send()`` on the channel will
+block that thread until the value is removed from the channel. In both cases,
+the channel will release control to allow other threads to run.
 
-.. warning:: The same precautions that need to be taken when using stateful objects
-    across threads still applies to objects sent through channels. The
-    preferred way to use channels is by passing *data* through them instead
-    of stateful objects.
+.. warning:: The same precautions that need to be taken when using stateful
+             objects across threads still applies to objects sent through
+             channels. The preferred way to use channels is by passing *data*
+             or *messages* through them instead of stateful objects.
