@@ -72,8 +72,3 @@ block that thread until a value is sent through the channel. Likewise, if there
 is already a value in the channel, calling ``send()`` on the channel will
 block that thread until the value is removed from the channel. In both cases,
 the channel will release control to allow other threads to run.
-
-.. warning:: The same precautions that need to be taken when using stateful
-             objects across threads still applies to objects sent through
-             channels. The preferred way to use channels is by passing *data*
-             or *messages* through them instead of stateful objects.
